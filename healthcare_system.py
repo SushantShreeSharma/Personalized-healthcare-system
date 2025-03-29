@@ -1,4 +1,4 @@
-# Import necessary  libraries
+# Import necessary libraries
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -6,19 +6,21 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Load the dataset
 try:
     data = pd.read_csv('medicine.csv')
     print("Dataset loaded successfully.")
 except FileNotFoundError:
-    print("Error: File '.csv' not found. Ensure the file is in the correct directory.")
+    print("Error: File 'medicine.csv' not found. Ensure the file is in the correct directory.")
     exit()
 
 # Explore the dataset
-print("First 5 rows of the dataset:")
+print("Initial rows of the dataset:")
 print(data.head())
-print("\nDataset Summary:")
+print("\nDataset Overview:")
 print(data.describe())
 
 # Preprocess the data
@@ -62,9 +64,18 @@ model_pipeline.fit(X_train, y_train)
 # Evaluate the model
 y_pred = model_pipeline.predict(X_test)
 print("\nConfusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
+cm = confusion_matrix(y_test, y_pred)
+print(cm)
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
+
+# Visualize the confusion matrix
+plt.figure(figsize=(10, 7))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['No action', 'Check-up', 'Lifestyle', 'Medicate'], yticklabels=['No action', 'Check-up', 'Lifestyle', 'Medicate'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix')
+plt.show()
 
 # Generate personalized recommendations
 def generate_recommendations(patient_data):
