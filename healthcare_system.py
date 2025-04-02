@@ -1,114 +1,49 @@
-# Import necessary libraries
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+import nltk
+import streamlit as st
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Load the dataset
-try:
-    data = pd.read_csv('medicine.csv')
-    print("Dataset loaded successfully.")
-except FileNotFoundError:
-    print("Error: File 'medicine.csv' not found. Ensure the file is in the correct directory.")
-    exit()
+# Load dataset
+def load_data():
+    url = "https://drive.google.com/uc?id=1kV6WZ4-1uwwbIW1eESOsNGtZa4Nlw1SE"
+    df = pd.read_csv(url, delimiter=",", on_bad_lines="skip", encoding="utf-8")
+    df.columns = df.columns.str.strip()  # Remove extra spaces from column names
+    df.drop(columns=['index'], inplace=True, errors='ignore')
+    df.dropna(how="any", inplace=True)  # Remove rows with missing values
+    return df
 
-# Explore the dataset
-print("Initial rows of the dataset:")
-print(data.head())
-print("\nDataset Overview:")
-print(data.describe())
+# Preprocess data
+def preprocess_data(df):
+    df.drop_duplicates(inplace=True)
+    return df
 
-# Preprocess the data
-# Separate features and target labels
-try:
-    X = data.drop('recommendation', axis=1)
-    y = data['recommendation']
-except KeyError:
-    print("Error: 'recommendation' column not found in the dataset.")
-    exit()
+# Train recommendation system
+def train_model(df):
+    vectorizer = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = vectorizer.fit_transform(df['Description'].fillna(""))
+    return vectorizer, tfidf_matrix
 
-# Identify numerical and categorical features
-numerical_features = ['age', 'blood_pressure', 'cholesterol', 'heart_rate']
-categorical_features = ['gender', 'smoking_status', 'exercise_level']
+# Recommend medicines
+def recommend_medicine(condition, df, vectorizer, tfidf_matrix):
+    condition_vector = vectorizer.transform([condition])
+    similarity_scores = cosine_similarity(condition_vector, tfidf_matrix).flatten()
+    recommendations = df.loc[np.argsort(similarity_scores)[-5:][::-1]]
+    return recommendations[['Drug_Name', 'Reason', 'Description']]
 
-# Create preprocessing pipelines
-numerical_pipeline = Pipeline(steps=[
-    ('scaler', StandardScaler())
-])
-categorical_pipeline = Pipeline(steps=[
-    ('encoder', OneHotEncoder(drop='first'))
-])
+# Streamlit UI
+def main():
+    st.title("Personalized Healthcare System")
+    df = load_data()
+    df = preprocess_data(df)
+    vectorizer, tfidf_matrix = train_model(df)
+    
+    user_input = st.text_input("Enter a condition (e.g., Acne, Diabetes)")
+    if st.button("Find Medicine") and user_input:
+        results = recommend_medicine(user_input, df, vectorizer, tfidf_matrix)
+        st.write(results)
 
-preprocessor = ColumnTransformer(transformers=[
-    ('num', numerical_pipeline, numerical_features),
-    ('cat', categorical_pipeline, categorical_features)
-])
+if __name__ == "__main__":
+    main()
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# Create a complete pipeline with preprocessing and model training
-model_pipeline = Pipeline(steps=[
-    ('preprocessor', preprocessor),
-    ('classifier', RandomForestClassifier(random_state=42))
-])
-
-# Train the model
-model_pipeline.fit(X_train, y_train)
-
-# Evaluate the model
-y_pred = model_pipeline.predict(X_test)
-print("\nConfusion Matrix:")
-cm = confusion_matrix(y_test, y_pred)
-print(cm)
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred))
-
-# Visualize the confusion matrix
-plt.figure(figsize=(10, 7))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['No action', 'Check-up', 'Lifestyle', 'Medicate'], yticklabels=['No action', 'Check-up', 'Lifestyle', 'Medicate'])
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix')
-plt.show()
-
-# Generate personalized recommendations
-def generate_recommendations(patient_data):
-    """
-    Generate personalized recommendations for a patient.
-    :param patient_data: DataFrame with patient details
-    :return: Recommendation string
-    """
-    try:
-        prediction = model_pipeline.predict(patient_data)
-        # Map predictions to actual recommendations
-        recommendation_mapping = {
-            0: 'No action needed',
-            1: 'Regular check-up',
-            2: 'Lifestyle changes',
-            3: 'Medication'
-        }
-        return recommendation_mapping.get(prediction[0], "Unknown Recommendation")
-    except Exception as e:
-        return f"Error in generating recommendation: {e}"
-
-# Example patient data for recommendation generation
-example_patient_data = pd.DataFrame({
-    'age': [45],
-    'gender': ['Male'],
-    'blood_pressure': [130],
-    'cholesterol': [200],
-    'heart_rate': [80],
-    'smoking_status': ['Non-smoker'],
-    'exercise_level': ['Moderate']
-})
-
-# Generate and display the recommendation for the example patient
-recommendation = generate_recommendations(example_patient_data)
-print("\nPersonalized Recommendation for Example Patient:")
-print(recommendation)
