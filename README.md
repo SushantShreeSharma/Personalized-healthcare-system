@@ -17,4 +17,4 @@ Streamlit (User Interface)
 Dataset
 The dataset is stored in Google Drive and is automatically loaded into the project
 
-https://ibb.co/3yxDN6dP
+https://ibb.co/hRHrBhWf
